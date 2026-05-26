@@ -28,7 +28,7 @@ class _CustomButtonState extends State<CustomButton> with SingleTickerProviderSt
 
   @override
   void initState() {
-    super.override
+    super.initState();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: AppConstants.durationFastMs),
