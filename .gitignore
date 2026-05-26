@@ -1,0 +1,63 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate.json
+
+# IntelliJ Related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Visual Studio Code Related
+.vscode/
+!.vscode/extensions.json
+*.code-workspace
+
+# Flutter/Dart Related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Android Related
+.gradle/
+local.properties
+**/AndroidManifest.xml.user
+**/local.properties
+**/gradlew
+**/gradlew.bat
+**/gradle-wrapper.jar
+*.nonessential
+.apk
+.ap_
+.aab
+
+# iOS/macOS Related
+**/doc/api/
+**/ios/.symlinks/
+**/ios/Pods/
+**/ios/Podfile.lock
+**/ios/DerivedData/
+**/ios/Flash/
+
+# Web Related
+.web/
+
+# Windows/Linux/macOS desktop Related
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/macos/flutter/ephemeral/
+
+# Coverage
+coverage/
