@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
-import 'features/counter_preview/presentation/pages/counter_page.dart';
+import 'features/form_submission/presentation/pages/form_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -8,14 +8,13 @@ void main() {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  // Simple state management for demonstration theme swapping
   bool _isDarkMode = true;
 
   void _toggleTheme() {
@@ -32,7 +31,7 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: CounterPage(
+      home: FormPage(
         onToggleTheme: _toggleTheme,
         isDarkMode: _isDarkMode,
       ),
