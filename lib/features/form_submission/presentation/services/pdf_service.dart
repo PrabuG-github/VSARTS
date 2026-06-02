@@ -2,40 +2,21 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../../../../core/utils/number_to_words.dart';
+import '../../data/models/invoice_model.dart';
 
-/// Model carrying the submitted form data.
-class FormData {
-  final String name;
-  final String email;
-  final String phone;
-  final String subject;
-  final String message;
-  final DateTime date;
-  final DateTime submittedAt;
-
-  const FormData({
-    required this.name,
-    required this.email,
-    required this.phone,
-    required this.subject,
-    required this.message,
-    required this.date,
-    required this.submittedAt,
-  });
-}
-
-/// Generates a styled PDF from a [FormData] object.
+/// Generates a styled premium corporate PDF Invoice from an [InvoiceData] object.
 class PdfService {
-  // Brand colours (approximated in PdfColor)
+  // Brand color scheme (approximated in PdfColor)
   static const _primary = PdfColor.fromInt(0xFF6366F1);   // Indigo 500
-  static const _secondary = PdfColor.fromInt(0xFFEC4899); // Pink 500
+  static const _secondary = PdfColor.fromInt(0xFF4F46E5); // Indigo 600
   static const _bgLight = PdfColor.fromInt(0xFFF8FAFC);
   static const _textDark = PdfColor.fromInt(0xFF0F172A);
   static const _textMuted = PdfColor.fromInt(0xFF475569);
   static const _border = PdfColor.fromInt(0xFFE2E8F0);
-  static const _success = PdfColor.fromInt(0xFF10B981);
+  static const _lightAccent = PdfColor.fromInt(0xFFEEF2F6);
 
-  static Future<Uint8List> generateFormPdf(FormData data) async {
+  static Future<Uint8List> generateInvoicePdf(InvoiceData data) async {
     final doc = pw.Document();
 
     doc.addPage(
@@ -43,6 +24,8 @@ class PdfService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(0),
         build: (pw.Context context) {
+          final currencyFormatter = NumberFormat.currency(locale: 'en_IN', symbol: 'Rs. ');
+
           return pw.Stack(
             children: [
               // ─── Background ──────────────────────────────────
@@ -50,13 +33,13 @@ class PdfService {
                 child: pw.Container(color: _bgLight),
               ),
 
-              // ─── Top gradient banner ──────────────────────────
+              // ─── Top gradient header strip ────────────────────
               pw.Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
                 child: pw.Container(
-                  height: 160,
+                  height: 140,
                   decoration: const pw.BoxDecoration(
                     gradient: pw.LinearGradient(
                       colors: [_primary, _secondary],
@@ -84,16 +67,14 @@ class PdfService {
                 ),
               ),
 
-              // ─── Main Content ─────────────────────────────────
+              // ─── Main Contents ───────────────────────────────
               pw.Positioned.fill(
                 child: pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 48),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 30),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.SizedBox(height: 36),
-
-                      // Header area (inside banner)
+                      // Header Section
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -102,7 +83,7 @@ class PdfService {
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
                               pw.Text(
-                                'VSARTS Studio',
+                                'VSARTS STUDIO',
                                 style: pw.TextStyle(
                                   color: PdfColors.white,
                                   fontSize: 22,
@@ -112,10 +93,10 @@ class PdfService {
                               ),
                               pw.SizedBox(height: 4),
                               pw.Text(
-                                'Submission Report',
+                                'Creative Print & Flex Solutions',
                                 style: const pw.TextStyle(
                                   color: PdfColors.white,
-                                  fontSize: 13,
+                                  fontSize: 10,
                                 ),
                               ),
                             ],
@@ -124,33 +105,32 @@ class PdfService {
                             crossAxisAlignment: pw.CrossAxisAlignment.end,
                             children: [
                               pw.Container(
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: const pw.BoxDecoration(
                                   color: PdfColors.white,
-                                  borderRadius:
-                                      pw.BorderRadius.all(pw.Radius.circular(20)),
+                                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
                                 ),
                                 child: pw.Text(
-                                  'SUBMITTED',
+                                  'INVOICE',
                                   style: pw.TextStyle(
-                                    color: _success,
-                                    fontSize: 9,
+                                    color: _secondary,
+                                    fontSize: 10,
                                     fontWeight: pw.FontWeight.bold,
-                                    letterSpacing: 1,
+                                    letterSpacing: 1.5,
                                   ),
                                 ),
                               ),
                               pw.SizedBox(height: 6),
                               pw.Text(
-                                DateFormat('dd MMM yyyy').format(data.submittedAt),
-                                style: const pw.TextStyle(
+                                'Bill No: ${data.billNo}',
+                                style: pw.TextStyle(
                                   color: PdfColors.white,
+                                  fontWeight: pw.FontWeight.bold,
                                   fontSize: 11,
                                 ),
                               ),
                               pw.Text(
-                                DateFormat('HH:mm').format(data.submittedAt),
+                                'Date: ${DateFormat('dd-MMM-yyyy').format(data.date)}',
                                 style: const pw.TextStyle(
                                   color: PdfColors.white,
                                   fontSize: 10,
@@ -161,84 +141,285 @@ class PdfService {
                         ],
                       ),
 
-                      pw.SizedBox(height: 48),
+                      pw.SizedBox(height: 45),
 
-                      // ─── White content card ───────────────────
-                      pw.Expanded(
-                        child: pw.Container(
-                          padding: const pw.EdgeInsets.all(32),
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.white,
-                            borderRadius: const pw.BorderRadius.all(
-                                pw.Radius.circular(16)),
-                            border: pw.Border.all(color: _border),
-                            boxShadow: const [
-                              pw.BoxShadow(
-                                color: PdfColor.fromInt(0x14000000),
-                                blurRadius: 16,
-                                offset: PdfPoint(0, 4),
+                      // Customer Information Card
+                      pw.Container(
+                        width: double.infinity,
+                        padding: const pw.EdgeInsets.all(16),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.white,
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                          border: pw.Border.all(color: _border),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'CLIENT DETAILS',
+                              style: pw.TextStyle(
+                                color: _primary,
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                letterSpacing: 0.8,
                               ),
-                            ],
-                          ),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              _sectionHeading('Personal Information'),
-                              pw.SizedBox(height: 16),
-                              _rowGroup([
-                                _infoField('Full Name', data.name),
-                                _infoField('Email Address', data.email),
-                              ]),
-                              pw.SizedBox(height: 12),
-                              _infoField('Phone Number', data.phone),
-
-                              pw.SizedBox(height: 24),
-                              _divider(),
-                              pw.SizedBox(height: 24),
-
-                              _sectionHeading('Request Details'),
-                              pw.SizedBox(height: 16),
-                              _rowGroup([
-                                _infoField('Subject', data.subject),
-                                _infoField(
-                                  'Preferred Date',
-                                  DateFormat('dd MMM yyyy').format(data.date),
+                            ),
+                            pw.SizedBox(height: 8),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Expanded(
+                                  child: pw.Column(
+                                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                    children: [
+                                      pw.Text(
+                                        data.clientName,
+                                        style: pw.TextStyle(
+                                          color: _textDark,
+                                          fontSize: 13,
+                                          fontWeight: pw.FontWeight.bold,
+                                        ),
+                                      ),
+                                      pw.SizedBox(height: 4),
+                                      pw.Text(
+                                        data.address,
+                                        style: const pw.TextStyle(
+                                          color: _textMuted,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ]),
-                              pw.SizedBox(height: 12),
-                              _messageField('Message', data.message),
-
-                              pw.Spacer(),
-
-                              // Footer line
-                              _divider(),
-                              pw.SizedBox(height: 12),
-                              pw.Row(
-                                mainAxisAlignment:
-                                    pw.MainAxisAlignment.spaceBetween,
-                                children: [
-                                  pw.Text(
-                                    'Generated by VSARTS Studio',
-                                    style: const pw.TextStyle(
-                                      color: _textMuted,
-                                      fontSize: 9,
+                                pw.Column(
+                                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                                  children: [
+                                    pw.Text(
+                                      'Phone',
+                                      style: pw.TextStyle(
+                                        color: _textMuted,
+                                        fontSize: 9,
+                                        fontWeight: pw.FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                  pw.Text(
-                                    'Ref: ${DateFormat('yyyyMMddHHmmss').format(data.submittedAt)}',
-                                    style: const pw.TextStyle(
-                                      color: _textMuted,
-                                      fontSize: 9,
+                                    pw.Text(
+                                      data.phoneNumber,
+                                      style: pw.TextStyle(
+                                        color: _textDark,
+                                        fontSize: 11,
+                                        fontWeight: pw.FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
 
                       pw.SizedBox(height: 20),
+
+                      // Items Table
+                      pw.Text(
+                        'ITEM DETAILS',
+                        style: pw.TextStyle(
+                          color: _primary,
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
+
+                      pw.Table(
+                        border: const pw.TableBorder(
+                          bottom: pw.BorderSide(color: _border, width: 0.5),
+                          horizontalInside: pw.BorderSide(color: _border, width: 0.5),
+                        ),
+                        columnWidths: const {
+                          0: pw.FixedColumnWidth(30),
+                          1: pw.FlexColumnWidth(),
+                          2: pw.FixedColumnWidth(65),
+                          3: pw.FixedColumnWidth(65),
+                          4: pw.FixedColumnWidth(40),
+                          5: pw.FixedColumnWidth(75),
+                          6: pw.FixedColumnWidth(85),
+                        },
+                        children: [
+                          // Table Header
+                          pw.TableRow(
+                            decoration: const pw.BoxDecoration(
+                              color: _primary,
+                              borderRadius: pw.BorderRadius.vertical(top: pw.Radius.circular(6)),
+                            ),
+                            children: [
+                              _tableHeaderCell('S.No', align: pw.TextAlign.center),
+                              _tableHeaderCell('Description'),
+                              _tableHeaderCell('Size (ft)', align: pw.TextAlign.center),
+                              _tableHeaderCell('Area (Sq.Ft)', align: pw.TextAlign.right),
+                              _tableHeaderCell('Qty', align: pw.TextAlign.center),
+                              _tableHeaderCell('Rate', align: pw.TextAlign.right),
+                              _tableHeaderCell('Total Price', align: pw.TextAlign.right),
+                            ],
+                          ),
+                          // Table Rows
+                          ...List.generate(data.items.length, (index) {
+                            final item = data.items[index];
+                            final isEven = index % 2 == 0;
+                            return pw.TableRow(
+                              decoration: pw.BoxDecoration(
+                                color: isEven ? PdfColors.white : _bgLight,
+                              ),
+                              children: [
+                                _tableCell('${index + 1}', align: pw.TextAlign.center),
+                                _tableCell(item.description),
+                                _tableCell('${item.length.toStringAsFixed(1)} x ${item.breadth.toStringAsFixed(1)}', align: pw.TextAlign.center),
+                                _tableCell(item.area.toStringAsFixed(2), align: pw.TextAlign.right),
+                                _tableCell('${item.quantity}', align: pw.TextAlign.center),
+                                _tableCell(currencyFormatter.format(item.rate), align: pw.TextAlign.right),
+                                _tableCell(currencyFormatter.format(item.price), align: pw.TextAlign.right),
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+
+                      pw.SizedBox(height: 25),
+
+                      // Summary Card and Amount in Words
+                      pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          // Amount in words box on left
+                          pw.Expanded(
+                            flex: 5,
+                            child: pw.Container(
+                              padding: const pw.EdgeInsets.all(12),
+                              decoration: const pw.BoxDecoration(
+                                color: _lightAccent,
+                                borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
+                              ),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text(
+                                    'AMOUNT IN WORDS',
+                                    style: pw.TextStyle(
+                                      color: _textMuted,
+                                      fontSize: 8,
+                                      fontWeight: pw.FontWeight.bold,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                  pw.SizedBox(height: 6),
+                                  pw.Text(
+                                    NumberToWords.convert(data.grandTotal),
+                                    style: pw.TextStyle(
+                                      color: _textDark,
+                                      fontSize: 10,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          pw.SizedBox(width: 20),
+                          // Totals column on right
+                          pw.Expanded(
+                            flex: 4,
+                            child: pw.Column(
+                              children: [
+                                _summaryRow('Sub Total:', currencyFormatter.format(data.subTotal)),
+                                pw.SizedBox(height: 6),
+                                _summaryRow(
+                                  'Extra Charges:',
+                                  currencyFormatter.format(data.locationOutsideParrys ? data.extraCharges : 0.0),
+                                ),
+                                pw.SizedBox(height: 8),
+                                pw.Divider(color: _border, thickness: 1),
+                                pw.SizedBox(height: 6),
+                                pw.Row(
+                                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    pw.Text(
+                                      'Grand Total:',
+                                      style: pw.TextStyle(
+                                        color: _secondary,
+                                        fontSize: 11,
+                                        fontWeight: pw.FontWeight.bold,
+                                      ),
+                                    ),
+                                    pw.Text(
+                                      currencyFormatter.format(data.grandTotal),
+                                      style: pw.TextStyle(
+                                        color: _secondary,
+                                        fontSize: 13,
+                                        fontWeight: pw.FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      pw.Spacer(),
+
+                      // Footer signature & details
+                      pw.Divider(color: _border, thickness: 1),
+                      pw.SizedBox(height: 12),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                'Terms & Conditions:',
+                                style: pw.TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 8,
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                              pw.Text(
+                                '1. All prices are inclusive of standard local delivery.',
+                                style: const pw.TextStyle(color: _textMuted, fontSize: 7),
+                              ),
+                              pw.Text(
+                                '2. Interest at 18% p.a. will be charged for delayed payments.',
+                                style: const pw.TextStyle(color: _textMuted, fontSize: 7),
+                              ),
+                            ],
+                          ),
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              pw.Container(
+                                width: 100,
+                                decoration: const pw.BoxDecoration(
+                                  border: pw.Border(bottom: pw.BorderSide(color: _border, width: 0.5)),
+                                ),
+                              ),
+                              pw.SizedBox(height: 4),
+                              pw.Text(
+                                'Authorized Signature',
+                                style: pw.TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 8,
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -252,119 +433,57 @@ class PdfService {
     return doc.save();
   }
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  // ─── Helper Widgets ──────────────────────────────────────────────────────────
 
-  static pw.Widget _sectionHeading(String title) {
+  static pw.Widget _tableHeaderCell(String text, {pw.TextAlign align = pw.TextAlign.left}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: pw.Text(
+        text,
+        textAlign: align,
+        style: pw.TextStyle(
+          color: PdfColors.white,
+          fontSize: 8,
+          fontWeight: pw.FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _tableCell(String text, {pw.TextAlign align = pw.TextAlign.left}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: pw.Text(
+        text,
+        textAlign: align,
+        style: const pw.TextStyle(
+          color: _textDark,
+          fontSize: 8.5,
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _summaryRow(String label, String value) {
     return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
-        pw.Container(
-          width: 4,
-          height: 18,
-          decoration: const pw.BoxDecoration(
-            color: _primary,
-            borderRadius: pw.BorderRadius.all(pw.Radius.circular(2)),
+        pw.Text(
+          label,
+          style: const pw.TextStyle(
+            color: _textMuted,
+            fontSize: 9,
           ),
         ),
-        pw.SizedBox(width: 8),
         pw.Text(
-          title,
+          value,
           style: pw.TextStyle(
-            color: _primary,
-            fontSize: 13,
+            color: _textDark,
+            fontSize: 9,
             fontWeight: pw.FontWeight.bold,
-            letterSpacing: 0.3,
           ),
         ),
       ],
     );
-  }
-
-  static pw.Widget _infoField(String label, String value) {
-    return pw.Expanded(
-      child: pw.Container(
-        padding: const pw.EdgeInsets.all(12),
-        decoration: pw.BoxDecoration(
-          color: _bgLight,
-          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-          border: pw.Border.all(color: _border),
-        ),
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              label.toUpperCase(),
-              style: pw.TextStyle(
-                color: _textMuted,
-                fontSize: 8,
-                fontWeight: pw.FontWeight.bold,
-                letterSpacing: 0.8,
-              ),
-            ),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              value.isEmpty ? '—' : value,
-              style: pw.TextStyle(
-                color: _textDark,
-                fontSize: 12,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static pw.Widget _messageField(String label, String value) {
-    return pw.Container(
-      width: double.infinity,
-      padding: const pw.EdgeInsets.all(12),
-      decoration: pw.BoxDecoration(
-        color: _bgLight,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-        border: pw.Border.all(color: _border),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            label.toUpperCase(),
-            style: pw.TextStyle(
-              color: _textMuted,
-              fontSize: 8,
-              fontWeight: pw.FontWeight.bold,
-              letterSpacing: 0.8,
-            ),
-          ),
-          pw.SizedBox(height: 6),
-          pw.Text(
-            value.isEmpty ? '—' : value,
-            style: const pw.TextStyle(
-              color: _textDark,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _rowGroup(List<pw.Widget> children) {
-    return pw.Row(
-      children: _interleave(children, pw.SizedBox(width: 12)),
-    );
-  }
-
-  static pw.Widget _divider() {
-    return pw.Divider(color: _border, thickness: 1);
-  }
-
-  static List<pw.Widget> _interleave(List<pw.Widget> items, pw.Widget sep) {
-    final result = <pw.Widget>[];
-    for (var i = 0; i < items.length; i++) {
-      result.add(items[i]);
-      if (i < items.length - 1) result.add(sep);
-    }
-    return result;
   }
 }
