@@ -65,6 +65,59 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
   bool _locationOutsideParrys = false;
   final _extraChargesController = TextEditingController(text: '500.00');
 
+  // Payment Terms & Notes
+  String _selectedPaymentTerm = 'Due on Receipt';
+  final _notesController = TextEditingController();
+
+  // Recent Customers data
+  final List<Map<String, String>> _recentCustomers = [
+    {
+      'name': 'Prabu G',
+      'phone': '9876543210',
+      'address': 'No. 12, Main Street, Chennai',
+    },
+    {
+      'name': 'Acme Corp',
+      'phone': '9876543211',
+      'address': '123 Business Rd, Chennai',
+    },
+    {
+      'name': 'Jane Doe',
+      'phone': '9876543212',
+      'address': '45 Park Avenue, Chennai',
+    },
+    {
+      'name': 'Tech Solutions',
+      'phone': '9876543213',
+      'address': '78 Tech Hub, Chennai',
+    },
+    {
+      'name': 'Aulia',
+      'phone': '9876543214',
+      'address': '10 Ocean View, Chennai',
+    },
+  ];
+
+  double get _completionProgress {
+    int total = 5;
+    int filled = 0;
+    if (_billNoController.text.isNotEmpty) filled++;
+    if (_clientNameController.text.isNotEmpty) filled++;
+    if (_phoneController.text.isNotEmpty) filled++;
+    if (_addressController.text.isNotEmpty) filled++;
+    filled++; // date is always selected
+
+    for (var item in _itemControllers) {
+      total += 5;
+      if (item.description.text.isNotEmpty) filled++;
+      if (item.quantity.text.isNotEmpty) filled++;
+      if (item.length.text.isNotEmpty) filled++;
+      if (item.breadth.text.isNotEmpty) filled++;
+      if (item.rate.text.isNotEmpty) filled++;
+    }
+    return total == 0 ? 0.0 : filled / total;
+  }
+
   late AnimationController _successController;
   late Animation<double> _successScale;
 
@@ -83,8 +136,13 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     // Load and set the next unique bill number from local storage
     _loadNextBillNumber();
 
-    // Real-time listener: update totals when extra charges amount changes
+    // Real-time listeners: update totals & progress bar reactively
     _extraChargesController.addListener(() => setState(() {}));
+    _billNoController.addListener(() => setState(() {}));
+    _clientNameController.addListener(() => setState(() {}));
+    _phoneController.addListener(() => setState(() {}));
+    _addressController.addListener(() => setState(() {}));
+    _notesController.addListener(() => setState(() {}));
 
     // Initialize with one empty item as shown in the mockup Screen 1
     _addNewItem();
@@ -121,6 +179,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     _phoneController.dispose();
     _addressController.dispose();
     _extraChargesController.dispose();
+    _notesController.dispose();
     for (var controller in _itemControllers) {
       controller.dispose();
     }
@@ -200,16 +259,16 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
       _phoneController.text = '9876543210';
       _addressController.text = 'No. 12, Main Street, Chennai';
 
-      // Item 1
+      // Item 1: quantity = 1, length = 8, breadth = 4, rate = 135 to yield area = 32 and price = 4320
       _addNewItem(
         desc: 'Flex Banner 8x4 ft',
-        qty: '2',
-        len: '3',
-        brd: '6',
-        rt: '120',
+        qty: '1',
+        len: '8',
+        brd: '4',
+        rt: '135',
       );
 
-      // Item 2
+      // Item 2: quantity = 1, length = 2, breadth = 10, rate = 150 to yield area = 20 and price = 3000
       _addNewItem(
         desc: 'Vinyl Printing',
         qty: '1',
@@ -221,6 +280,8 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
       // Toggle & Extra Charges
       _locationOutsideParrys = true;
       _extraChargesController.text = '500.00';
+      _selectedPaymentTerm = 'Due on Receipt';
+      _notesController.text = '';
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -241,9 +302,14 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     return double.tryParse(_extraChargesController.text) ?? 0.0;
   }
 
+  /// Calculates the Tax of the invoice (10% of Sub Total)
+  double get _taxAmount {
+    return _subTotal * 0.10;
+  }
+
   /// Calculates the Grand Total of the invoice
   double get _grandTotal {
-    return _subTotal + _extraCharges;
+    return _subTotal + _extraCharges + _taxAmount;
   }
 
   Future<void> _pickDate() async {
@@ -361,6 +427,8 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     _clientNameController.clear();
     _phoneController.clear();
     _addressController.clear();
+    _notesController.clear();
+    _selectedPaymentTerm = 'Due on Receipt';
     for (var c in _itemControllers) {
       c.dispose();
     }
@@ -379,66 +447,206 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     _addNewItem();
   }
 
+  Widget _getRecentCustomerLogo(String name) {
+    switch (name) {
+      case 'Acme Corp':
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: const Text(
+            'A',
+            style: TextStyle(
+              color: Colors.blueAccent,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        );
+      case 'Jane Doe':
+        return const Icon(
+          Icons.face_rounded,
+          color: Colors.pinkAccent,
+          size: 22,
+        );
+      case 'Tech Solutions':
+        return const Icon(
+          Icons.settings_outlined,
+          color: Colors.blue,
+          size: 20,
+        );
+      case 'Aulia':
+        return const Icon(
+          Icons.person_pin,
+          color: Colors.tealAccent,
+          size: 20,
+        );
+      default:
+        return const Icon(
+          Icons.person_outline_rounded,
+          color: Colors.grey,
+          size: 18,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = widget.isDarkMode;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.bgDark : const Color(0xFFF9F9FA),
+      backgroundColor: isDark ? const Color(0xFF0C0A1A) : const Color(0xFFF9F9FA),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Back button pressed')),
-            );
-          },
+        centerTitle: false,
+        leadingWidth: 40,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Back button pressed')),
+              );
+            },
+          ),
         ),
         title: Text(
           'Create Invoice',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E1B4B),
+            color: isDark ? Colors.white : const Color(0xFF1E1B4B),
+            fontSize: 20,
           ),
         ),
         actions: [
-          // Developers load mockup values helper
-          TextButton.icon(
-            onPressed: _loadMockData,
-            icon: const Icon(Icons.auto_awesome, size: 16, color: AppColors.primary),
-            label: const Text(
-              'Mock',
-              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
-            ),
-            onPressed: widget.onToggleTheme,
-          ),
-          TextButton.icon(
-            onPressed: _handleSaveDraft,
-            icon: const Icon(Icons.check_circle_outline_rounded, color: AppColors.primary, size: 18),
-            label: const Text(
-              'Save',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
+          // Styled gradient Mock Button
+          GestureDetector(
+            onTap: _loadMockData,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    'Mock',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(width: AppConstants.spaceS),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: isDark ? Colors.white : AppColors.textPrimaryLight,
+            ),
+            onPressed: widget.onToggleTheme,
+          ),
+          // Styled Save button
+          TextButton.icon(
+            onPressed: _handleSaveDraft,
+            icon: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFFC084FC), size: 18),
+            label: const Text(
+              'Save',
+              style: TextStyle(
+                color: Color(0xFFC084FC),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Stack(
         children: [
-          // Premium glowing background orbs (subtle)
-          if (!isDark) ...[
+          // Background subtle gradients & glows
+          if (isDark) ...[
+            Positioned(
+              top: -80,
+              right: -80,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                      blurRadius: 120,
+                      spreadRadius: 40,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 250,
+              left: -120,
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFD946EF).withOpacity(0.08),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFD946EF).withOpacity(0.15),
+                      blurRadius: 100,
+                      spreadRadius: 30,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 100,
+              right: -100,
+              child: Container(
+                width: 320,
+                height: 320,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF6366F1).withOpacity(0.08),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withOpacity(0.15),
+                      blurRadius: 120,
+                      spreadRadius: 30,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
             Positioned(
               top: -60,
               right: -60,
@@ -474,14 +682,12 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       const SizedBox(height: AppConstants.spaceS),
-
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: AppConstants.durationNormalMs),
                         child: _submitted
                             ? _buildSuccessCard(theme, isDark)
                             : _buildInvoiceForm(theme, isDark),
                       ),
-
                       const SizedBox(height: AppConstants.spaceXXL),
                     ]),
                   ),
@@ -505,90 +711,170 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           // ─── BILL DETAILS CARD ───────────────────────────────────────────────
           Card(
             margin: EdgeInsets.zero,
-            color: isDark ? AppColors.cardDark : AppColors.cardLight,
+            color: isDark ? const Color(0xFF131524).withOpacity(0.8) : AppColors.cardLight,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusL),
-              side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+              side: BorderSide(color: isDark ? const Color(0xFF1E2235) : AppColors.borderLight),
             ),
             child: Padding(
               padding: const EdgeInsets.all(AppConstants.spaceM),
-              child: Row(
+              child: Column(
                 children: [
-                  // Bill No input
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bill No.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        TextFormField(
-                          controller: _billNoController,
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            isDense: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    height: 32,
-                    width: 1,
-                    color: isDark ? AppColors.borderDark : AppColors.borderLight,
-                  ),
-                  const SizedBox(width: AppConstants.spaceM),
-                  // Date Picker
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: _pickDate,
-                      behavior: HitTestBehavior.opaque,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Date',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                  Row(
+                    children: [
+                      // Bill No input
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Bill No.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _billNoController,
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.tag,
+                                  color: isDark ? const Color(0xFF6B7280) : Colors.grey,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppConstants.spaceM),
+                      Container(
+                        height: 32,
+                        width: 1,
+                        color: isDark ? const Color(0xFF334155) : AppColors.borderLight,
+                      ),
+                      const SizedBox(width: AppConstants.spaceM),
+                      // Date Picker
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _pickDate,
+                          behavior: HitTestBehavior.opaque,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                DateFormat('dd-MMM-yyyy').format(_selectedDate),
-                                style: const TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                'Date',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
                                 ),
                               ),
-                              const Icon(
-                                Icons.calendar_today_rounded,
-                                color: AppColors.primary,
-                                size: 18,
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    DateFormat('dd-MMM-yyyy').format(_selectedDate),
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    color: isDark ? const Color(0xFF6B7280) : Colors.grey,
+                                    size: 16,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Progress indicator row
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'Form Completion',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${(_completionProgress * 100).toInt()}%',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                            ),
+                          ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          height: 6,
+                          color: isDark ? const Color(0xFF1E1E38) : Colors.grey.shade200,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: (_completionProgress * 100).toInt(),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 100 - (_completionProgress * 100).toInt(),
+                                child: const SizedBox(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -597,42 +883,129 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           const SizedBox(height: AppConstants.spaceL),
 
           // ─── CUSTOMER INFORMATION ────────────────────────────────────────────
-          _buildSectionHeader(theme, 'Customer Information'),
-          const SizedBox(height: AppConstants.spaceM),
-
-          _buildField(
-            controller: _clientNameController,
-            label: 'Client Name',
-            hint: 'Enter client name',
-            icon: Icons.person_outline_rounded,
-            isDark: isDark,
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Client Name is required' : null,
-          ),
-          const SizedBox(height: AppConstants.spaceM),
-
-          _buildField(
-            controller: _phoneController,
-            label: 'Phone Number',
-            hint: 'Enter phone number',
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
-            isDark: isDark,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Phone number is required';
-              if (v.trim().length < 10) return 'Enter a valid phone number';
-              return null;
-            },
-          ),
-          const SizedBox(height: AppConstants.spaceM),
-
-          _buildField(
-            controller: _addressController,
-            label: 'Address',
-            hint: 'Enter address',
-            icon: Icons.location_on_outlined,
-            maxLines: 2,
-            isDark: isDark,
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Address is required' : null,
+          Card(
+            margin: EdgeInsets.zero,
+            color: isDark ? const Color(0xFF131524).withOpacity(0.8) : AppColors.cardLight,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+              side: BorderSide(color: isDark ? const Color(0xFF1E2235) : AppColors.borderLight),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(AppConstants.spaceM),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSectionHeader(theme, 'Customer Information', isDark),
+                      const Text(
+                        'Recent Customers',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 62,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _recentCustomers.length,
+                      itemBuilder: (context, i) {
+                        final cust = _recentCustomers[i];
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _clientNameController.text = cust['name']!;
+                              _phoneController.text = cust['phone']!;
+                              _addressController.text = cust['address']!;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Loaded client: ${cust['name']}'),
+                                backgroundColor: AppColors.primary,
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 12),
+                            width: 50,
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF17192C),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFF2D325A),
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: _getRecentCustomerLogo(cust['name']!),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  cust['name']!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  _buildField(
+                    controller: _clientNameController,
+                    label: 'Client Name',
+                    hint: 'Enter client name',
+                    icon: Icons.person_outline_rounded,
+                    isDark: isDark,
+                    isUnderlined: true,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Client Name is required' : null,
+                  ),
+                  const SizedBox(height: AppConstants.spaceM),
+                  _buildField(
+                    controller: _phoneController,
+                    label: 'Phone Number',
+                    hint: 'Enter phone number',
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                    isDark: isDark,
+                    isUnderlined: true,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Phone number is required';
+                      if (v.trim().length < 10) return 'Enter a valid phone number';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppConstants.spaceM),
+                  _buildField(
+                    controller: _addressController,
+                    label: 'Address',
+                    hint: 'Enter address',
+                    icon: Icons.location_on_outlined,
+                    maxLines: 2,
+                    isDark: isDark,
+                    isUnderlined: true,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Address is required' : null,
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: AppConstants.spaceXL),
 
@@ -640,15 +1013,30 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSectionHeader(theme, 'Item Details${_itemControllers.length > 1 ? " (${_itemControllers.length})" : ""}'),
-              TextButton.icon(
-                onPressed: () => _addNewItem(),
-                icon: const Icon(Icons.add, size: 16, color: AppColors.primary),
-                label: const Text(
-                  'Add Item',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
+              _buildSectionHeader(theme, 'Item Details${_itemControllers.length > 1 ? " (${_itemControllers.length})" : ""}', isDark),
+              GestureDetector(
+                onTap: () => _addNewItem(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.add, size: 16, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'Add Item',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -666,7 +1054,6 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
               return _buildItemCard(theme, controllers, index, isDark);
             },
           ),
-
           const SizedBox(height: AppConstants.spaceM),
 
           // Add Another Item Button (mockup style)
@@ -677,10 +1064,10 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.cardDark.withOpacity(0.4) : const Color(0xFFF3E8FF).withOpacity(0.3),
+                color: isDark ? const Color(0xFF131524) : const Color(0xFFF3E8FF).withOpacity(0.3),
                 borderRadius: BorderRadius.circular(AppConstants.radiusM),
                 border: Border.all(
-                  color: AppColors.primary.withOpacity(0.3),
+                  color: const Color(0xFF8B5CF6).withOpacity(0.5),
                   style: BorderStyle.solid,
                   width: 1,
                 ),
@@ -688,12 +1075,12 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add, color: AppColors.primary, size: 20),
+                  Icon(Icons.add, color: Color(0xFFD946EF), size: 20),
                   SizedBox(width: 8),
                   Text(
                     'Add Another Item',
                     style: TextStyle(
-                      color: AppColors.primary,
+                      color: Color(0xFFD946EF),
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -708,9 +1095,9 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 12),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.cardDark : AppColors.cardLight,
+              color: isDark ? const Color(0xFF131524).withOpacity(0.8) : AppColors.cardLight,
               borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+              border: Border.all(color: isDark ? const Color(0xFF1E2235) : AppColors.borderLight),
             ),
             child: Column(
               children: [
@@ -724,7 +1111,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E1B4B),
+                            color: isDark ? Colors.white : const Color(0xFF1E1B4B),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -747,7 +1134,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                           child: const Icon(
                             Icons.info_outline_rounded,
                             size: 16,
-                            color: AppColors.primary,
+                            color: Color(0xFF8B5CF6),
                           ),
                         ),
                       ],
@@ -759,7 +1146,8 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                           _locationOutsideParrys = val;
                         });
                       },
-                      activeColor: AppColors.primary,
+                      activeColor: const Color(0xFF8B5CF6),
+                      activeTrackColor: const Color(0xFF8B5CF6).withOpacity(0.4),
                     ),
                   ],
                 ),
@@ -772,6 +1160,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                     icon: Icons.currency_rupee_rounded,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     isDark: isDark,
+                    isUnderlined: false,
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Charges are required';
                       if (double.tryParse(v) == null) return 'Enter a valid amount';
@@ -782,19 +1171,101 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
               ],
             ),
           ),
+          
+          // ─── PAYMENT TERMS SECTION ─────────────────────────────────────────────
+          const SizedBox(height: AppConstants.spaceXL),
+          const Text(
+            'Payment Terms',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: ['Due on Receipt', 'Net 15', 'Net 30', 'Net 60'].map((term) {
+                final isSelected = _selectedPaymentTerm == term;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedPaymentTerm = term;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF1E1B4B)
+                          : const Color(0xFF131524),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF334155),
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      term,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey.shade400,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          // ─── NOTES SECTION ─────────────────────────────────────────────────────
+          const SizedBox(height: AppConstants.spaceXL),
+          const Text(
+            'Notes',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: _notesController,
+            maxLines: 3,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Add a personal message to your client',
+              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+              filled: true,
+              fillColor: const Color(0xFF131524),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF334155)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF8B5CF6)),
+              ),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+          ),
           const SizedBox(height: AppConstants.spaceXL),
 
           // ─── INVOICE SUMMARY CARD ────────────────────────────────────────────
-          _buildSectionHeader(theme, 'Invoice Summary'),
+          _buildSectionHeader(theme, 'Invoice Summary', isDark),
           const SizedBox(height: AppConstants.spaceM),
 
           Card(
             margin: EdgeInsets.zero,
-            color: isDark ? AppColors.cardDark : AppColors.cardLight,
+            color: isDark ? const Color(0xFF131524).withOpacity(0.8) : AppColors.cardLight,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusL),
-              side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+              side: BorderSide(color: isDark ? const Color(0xFF1E2235) : AppColors.borderLight),
             ),
             child: Padding(
               padding: const EdgeInsets.all(AppConstants.spaceL),
@@ -808,7 +1279,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                          color: isDark ? Colors.grey.shade400 : AppColors.textSecondaryLight,
                         ),
                       ),
                       Text(
@@ -816,7 +1287,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                          color: isDark ? Colors.white : AppColors.textPrimaryLight,
                         ),
                       ),
                     ],
@@ -830,7 +1301,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                          color: isDark ? Colors.grey.shade400 : AppColors.textSecondaryLight,
                         ),
                       ),
                       Text(
@@ -838,46 +1309,82 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                          color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Tax (10%)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.grey.shade400 : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                      Text(
+                        currencyFormatter.format(_taxAmount),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppColors.textPrimaryLight,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight, thickness: 1),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Grand Total',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
+                  // Glowing Grand Total Box
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A162B),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF8B5CF6), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                          blurRadius: 10,
+                          spreadRadius: 1,
                         ),
-                      ),
-                      Text(
-                        currencyFormatter.format(_grandTotal),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Grand Total',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFC084FC),
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          currencyFormatter.format(_grandTotal),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFC084FC),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: AppConstants.spaceL),
 
                   // Amount in Words Tinted Container
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 14),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E1F35) : const Color(0xFFF3E8FF).withOpacity(0.6),
+                      color: isDark ? const Color(0xFF17192C) : const Color(0xFFF3E8FF).withOpacity(0.6),
                       borderRadius: BorderRadius.circular(AppConstants.radiusM),
                       border: Border.all(
-                        color: AppColors.primary.withOpacity(isDark ? 0.15 : 0.08),
+                        color: const Color(0xFF2D325A),
                       ),
                     ),
                     child: Column(
@@ -889,7 +1396,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.6,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                            color: isDark ? Colors.grey.shade400 : AppColors.textSecondaryLight,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -897,7 +1404,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                           children: [
                             const Icon(
                               Icons.description_outlined,
-                              color: AppColors.primary,
+                              color: Color(0xFF8B5CF6),
                               size: 18,
                             ),
                             const SizedBox(width: 10),
@@ -908,7 +1415,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   height: 1.3,
-                                  color: isDark ? AppColors.textPrimaryDark : const Color(0xFF4A148C),
+                                  color: isDark ? Colors.white : const Color(0xFF4A148C),
                                 ),
                               ),
                             ),
@@ -933,35 +1440,52 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                   label: const Text('Save Draft'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: AppColors.primary, width: 1.5),
-                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFF131524),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: AppConstants.spaceM),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isSubmitting ? null : _handleGeneratePdf,
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.picture_as_pdf_rounded, size: 20),
-                  label: Text(_isSubmitting ? 'Generating...' : 'Generate PDF'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: _isSubmitting ? null : _handleGeneratePdf,
+                    icon: _isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.picture_as_pdf_rounded, size: 20),
+                    label: Text(_isSubmitting ? 'Generating...' : 'Generate PDF'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -976,182 +1500,202 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
   Widget _buildItemCard(ThemeData theme, ItemControllers controllers, int index, bool isDark) {
     return Card(
       margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
-      color: isDark ? AppColors.cardDark : AppColors.cardLight,
+      color: isDark ? const Color(0xFF131524).withOpacity(0.8) : AppColors.cardLight,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppConstants.radiusL),
-        side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+        side: BorderSide(color: isDark ? const Color(0xFF1E2235) : AppColors.borderLight),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppConstants.spaceM),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Card Title Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Badge circle index
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+          boxShadow: isDark
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.04),
+                    blurRadius: 15,
+                    spreadRadius: 2,
                   ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                ]
+              : [],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppConstants.spaceM),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Card Title Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Badge circle index
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF8B5CF6),
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                ),
-                // Trash can delete button
-                IconButton(
-                  onPressed: () => _removeItem(index),
-                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  splashRadius: 20,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppConstants.spaceM),
-
-            // Description
-            _buildField(
-              controller: controllers.description,
-              label: 'Description',
-              hint: 'Enter description',
-              icon: Icons.edit_note_rounded,
-              isDark: isDark,
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Description is required' : null,
-            ),
-            const SizedBox(height: AppConstants.spaceM),
-
-            // Quantity
-            _buildField(
-              controller: controllers.quantity,
-              label: 'Quantity',
-              hint: 'Enter quantity',
-              icon: Icons.tag_rounded,
-              keyboardType: TextInputType.number,
-              isDark: isDark,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Quantity is required';
-                if (int.tryParse(v) == null) return 'Enter a valid number';
-                return null;
-              },
-            ),
-            const SizedBox(height: AppConstants.spaceM),
-
-            // Dimensions Row (Length and Breadth separated by "x")
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Dimensions (ft)',
-                      style: TextStyle(
-                        fontSize: 13,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E1B4B),
                       ),
                     ),
-                    const Text(' *', style: TextStyle(color: AppColors.error)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildDimensionField(
-                        controller: controllers.length,
-                        label: 'Length',
-                        hint: 'Enter length',
-                        isDark: isDark,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-                      child: Text(
-                        '×',
+                  ),
+                  // Trash can delete button
+                  IconButton(
+                    onPressed: () => _removeItem(index),
+                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+
+              // Description
+              _buildField(
+                controller: controllers.description,
+                label: 'Description',
+                hint: 'Enter description',
+                icon: Icons.edit_note_rounded,
+                isDark: isDark,
+                isUnderlined: true,
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Description is required' : null,
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+
+              // Quantity
+              _buildField(
+                controller: controllers.quantity,
+                label: 'Quantity',
+                hint: 'Enter quantity',
+                icon: Icons.tag_rounded,
+                keyboardType: TextInputType.number,
+                isDark: isDark,
+                isUnderlined: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Quantity is required';
+                  if (int.tryParse(v) == null) return 'Enter a valid number';
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+
+              // Dimensions Row (Length and Breadth separated by "x")
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Dimensions (ft)',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey,
+                          color: isDark ? Colors.grey.shade400 : const Color(0xFF1E1B4B),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: _buildDimensionField(
-                        controller: controllers.breadth,
-                        label: 'Breadth',
-                        hint: 'Enter breadth',
-                        isDark: isDark,
+                      const Text(' *', style: TextStyle(color: AppColors.error)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildDimensionField(
+                          controller: controllers.length,
+                          label: 'Length',
+                          hint: 'Enter length',
+                          isDark: isDark,
+                        ),
                       ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                        child: Text(
+                          '×',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildDimensionField(
+                          controller: controllers.breadth,
+                          label: 'Breadth',
+                          hint: 'Enter breadth',
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+
+              // Calculated Area & Entered Rate
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildCalculatedField(
+                      label: 'Area (Sq.Ft)',
+                      value: controllers.area.toStringAsFixed(2),
+                      isDark: isDark,
+                      icon: Icons.aspect_ratio_rounded,
                     ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: AppConstants.spaceM),
-
-            // Calculated Area & Entered Rate
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCalculatedField(
-                    label: 'Area (Sq.Ft)',
-                    value: controllers.area.toStringAsFixed(2),
-                    isDark: isDark,
                   ),
-                ),
-                const SizedBox(width: AppConstants.spaceM),
-                Expanded(
-                  child: _buildField(
-                    controller: controllers.rate,
-                    label: 'Rate (₹ / Sq.Ft)',
-                    hint: 'Enter rate',
-                    icon: Icons.currency_rupee_rounded,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    isDark: isDark,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Rate is required';
-                      if (double.tryParse(v) == null) return 'Enter a valid rate';
-                      return null;
-                    },
+                  const SizedBox(width: AppConstants.spaceM),
+                  Expanded(
+                    child: _buildField(
+                      controller: controllers.rate,
+                      label: 'Rate (₹ / Sq.Ft)',
+                      hint: 'Enter rate',
+                      icon: Icons.currency_rupee_rounded,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      isDark: isDark,
+                      isUnderlined: false,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Rate is required';
+                        if (double.tryParse(v) == null) return 'Enter a valid rate';
+                        return null;
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppConstants.spaceM),
+                ],
+              ),
+              const SizedBox(height: AppConstants.spaceM),
 
-            // Calculated Total Price
-            _buildCalculatedField(
-              label: 'Price (₹)',
-              value: NumberFormat.currency(locale: 'en_IN', symbol: '₹ ').format(controllers.price),
-              isDark: isDark,
-            ),
-          ],
+              // Calculated Total Price
+              _buildCalculatedField(
+                label: 'Price (₹)',
+                value: NumberFormat.currency(locale: 'en_IN', symbol: '₹ ').format(controllers.price),
+                isDark: isDark,
+                icon: Icons.calculate_rounded,
+                showAutoText: true,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildSectionHeader(ThemeData theme, String label) {
+  Widget _buildSectionHeader(ThemeData theme, String label, bool isDark) {
     return Row(
       children: [
         Container(
           width: 4,
           height: 18,
           decoration: BoxDecoration(
-            color: AppColors.primary,
+            color: const Color(0xFF8B5CF6),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -1159,7 +1703,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
         Text(
           label,
           style: theme.textTheme.titleMedium?.copyWith(
-            color: AppColors.primary,
+            color: isDark ? Colors.white : const Color(0xFF1E1B4B),
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1176,9 +1720,28 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     String? Function(String?)? validator,
+    bool isUnderlined = false,
   }) {
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final fillColor = isDark ? AppColors.cardDark.withOpacity(0.5) : const Color(0xFFF9F9FA);
+    final borderColor = isDark ? const Color(0xFF1E2235) : AppColors.borderLight;
+    final fillColor = isDark ? const Color(0xFF131524).withOpacity(0.5) : const Color(0xFFF9F9FA);
+
+    final enabledBorder = isUnderlined
+        ? UnderlineInputBorder(
+            borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+          )
+        : OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+            borderSide: BorderSide(color: borderColor),
+          );
+
+    final focusedBorder = isUnderlined
+        ? const UnderlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFFD946EF), width: 1.5),
+          )
+        : OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+            borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1190,7 +1753,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E1B4B),
+                color: isDark ? Colors.grey.shade400 : const Color(0xFF1E1B4B),
               ),
             ),
             const Text(' *', style: TextStyle(color: AppColors.error)),
@@ -1203,37 +1766,35 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           maxLines: maxLines,
           validator: validator,
           style: TextStyle(
-            color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+            color: isDark ? Colors.white : AppColors.textPrimaryLight,
             fontSize: 15,
           ),
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 20),
-            filled: true,
+            prefixIcon: Icon(icon, color: const Color(0xFF8B5CF6), size: 20),
+            filled: !isUnderlined,
             fillColor: fillColor,
             hintStyle: TextStyle(
-              color: Colors.grey.shade400,
+              color: Colors.grey.shade500,
               fontSize: 14,
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              borderSide: BorderSide(color: borderColor),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              borderSide: const BorderSide(color: AppColors.error),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-            ),
+            enabledBorder: enabledBorder,
+            focusedBorder: focusedBorder,
+            errorBorder: isUnderlined
+                ? const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.error))
+                : OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    borderSide: const BorderSide(color: AppColors.error),
+                  ),
+            focusedErrorBorder: isUnderlined
+                ? const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.error, width: 1.5))
+                : OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+                  ),
             contentPadding: EdgeInsets.symmetric(
-              horizontal: AppConstants.spaceM,
-              vertical: maxLines > 1 ? AppConstants.spaceM : AppConstants.spaceS + 4,
+              horizontal: isUnderlined ? 0 : AppConstants.spaceM,
+              vertical: maxLines > 1 ? AppConstants.spaceM : 10,
             ),
           ),
         ),
@@ -1247,8 +1808,8 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     required String hint,
     required bool isDark,
   }) {
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final fillColor = isDark ? AppColors.cardDark.withOpacity(0.5) : const Color(0xFFF9F9FA);
+    final borderColor = isDark ? const Color(0xFF8B5CF6).withOpacity(0.4) : AppColors.borderLight;
+    final fillColor = isDark ? const Color(0xFF131524).withOpacity(0.8) : const Color(0xFFF9F9FA);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1257,7 +1818,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           label,
           style: TextStyle(
             fontSize: 11,
-            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+            color: isDark ? Colors.grey.shade400 : AppColors.textSecondaryLight,
           ),
         ),
         const SizedBox(height: 4),
@@ -1270,36 +1831,37 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
             return null;
           },
           style: TextStyle(
-            color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+            color: isDark ? Colors.white : AppColors.textPrimaryLight,
             fontSize: 15,
           ),
           decoration: InputDecoration(
             hintText: hint,
+            prefixIcon: const Icon(Icons.straighten_rounded, color: Color(0xFF8B5CF6), size: 16),
             filled: true,
             fillColor: fillColor,
             hintStyle: TextStyle(
-              color: Colors.grey.shade400,
+              color: Colors.grey.shade500,
               fontSize: 13,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: borderColor),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFD946EF), width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: AppColors.error),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: AppColors.error, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
+              horizontal: 10,
+              vertical: 8,
             ),
           ),
         ),
@@ -1311,9 +1873,11 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     required String label,
     required String value,
     required bool isDark,
+    required IconData icon,
+    bool showAutoText = true,
   }) {
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final fillColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? const Color(0xFF8B5CF6).withOpacity(0.3) : AppColors.borderLight;
+    final fillColor = isDark ? const Color(0xFF131524).withOpacity(0.8) : const Color(0xFFF1F5F9);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1323,7 +1887,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E1B4B),
+            color: isDark ? Colors.grey.shade400 : const Color(0xFF1E1B4B),
           ),
         ),
         const SizedBox(height: 6),
@@ -1332,30 +1896,40 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           children: [
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: fillColor,
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: borderColor),
                 ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                  ),
+                child: Row(
+                  children: [
+                    Icon(icon, color: const Color(0xFF8B5CF6), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              '(Auto calculated)',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade400,
+            if (showAutoText) ...[
+              const SizedBox(width: 8),
+              const Text(
+                '(Auto calculated)',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ],
@@ -1366,11 +1940,11 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     return Card(
       key: const ValueKey('success'),
       margin: EdgeInsets.zero,
-      color: isDark ? AppColors.cardDark : AppColors.cardLight,
+      color: isDark ? const Color(0xFF131524).withOpacity(0.8) : AppColors.cardLight,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-        side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+        side: BorderSide(color: isDark ? const Color(0xFF1E2235) : AppColors.borderLight),
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppConstants.spaceXL),
@@ -1390,7 +1964,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.success.withValues(alpha: 0.35),
+                      color: AppColors.success.withOpacity(0.35),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -1404,7 +1978,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
               'Invoice Created!',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E1B4B),
+                color: isDark ? Colors.white : const Color(0xFF1E1B4B),
               ),
             ),
             const SizedBox(height: AppConstants.spaceS),
@@ -1427,8 +2001,9 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                   horizontal: AppConstants.spaceL,
                   vertical: AppConstants.spaceM,
                 ),
-                side: const BorderSide(color: AppColors.primary, width: 1.5),
-                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+                foregroundColor: Colors.white,
+                backgroundColor: const Color(0xFF131524),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppConstants.radiusM),
                 ),

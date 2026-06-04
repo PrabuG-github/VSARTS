@@ -1,33 +1,16 @@
-// This is a basic Flutter widget test for the VSARTS Studio application.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:vsarts/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('Invoice creator smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon/button and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    // Verify that our invoice screen starts with "Create Invoice" title.
+    expect(find.text('Create Invoice'), findsOneWidget);
     
-    // We use pumpAndSettle to wait for the premium micro-animations
-    // and switcher transitions to fully complete.
-    await tester.pumpAndSettle();
-
-    // Verify that our counter has incremented and transition finished.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that we have Customer Information section or fields.
+    expect(find.text('Client Name'), findsOneWidget);
   });
 }

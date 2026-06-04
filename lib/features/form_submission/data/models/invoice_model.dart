@@ -65,6 +65,9 @@ class InvoiceData {
   /// Calculates the Sub Total = Sum of all item prices.
   double get subTotal => items.fold(0.0, (sum, item) => sum + item.price);
 
-  /// Calculates the Grand Total = Sub Total + Extra Charges.
-  double get grandTotal => subTotal + (locationOutsideParrys ? extraCharges : 0.0);
+  /// Calculates Tax = 10% of Sub Total.
+  double get tax => subTotal * 0.10;
+
+  /// Calculates the Grand Total = Sub Total + Extra Charges + Tax.
+  double get grandTotal => subTotal + (locationOutsideParrys ? extraCharges : 0.0) + tax;
 }
