@@ -148,6 +148,11 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     _addNewItem();
   }
 
+  String _formatBillNumber(int counter, DateTime date) {
+    final dateStr = DateFormat('ddMMyyyy').format(date);
+    return 'VS-${counter.toString().padLeft(2, '0')}$dateStr';
+  }
+
   /// Loads the last used bill counter from SharedPreferences and sets the next number
   Future<void> _loadNextBillNumber() async {
     final prefs = await SharedPreferences.getInstance();
@@ -155,7 +160,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     final nextCounter = lastCounter + 1;
     if (mounted) {
       setState(() {
-        _billNoController.text = 'INV-${nextCounter.toString().padLeft(3, '0')}';
+        _billNoController.text = _formatBillNumber(nextCounter, _selectedDate);
       });
     }
   }
@@ -163,12 +168,19 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
   /// Persists the current bill counter so the next bill gets a higher number
   Future<void> _saveBillCounter() async {
     final prefs = await SharedPreferences.getInstance();
-    // Parse the numeric part from the current bill number (e.g. INV-007 -> 7)
+    // Parse the counter part from the current bill number (e.g. VS-0205062026 -> 2)
     final text = _billNoController.text.trim();
-    final match = RegExp(r'(\d+)$').firstMatch(text);
+    final match = RegExp(r'^VS-(\d+)\d{8}$').firstMatch(text);
     if (match != null) {
       final counter = int.tryParse(match.group(1)!) ?? 0;
       await prefs.setInt(_billCounterKey, counter);
+    } else {
+      // Fallback: search for any sequence of digits following VS-
+      final matchFallback = RegExp(r'VS-(\d+)').firstMatch(text);
+      if (matchFallback != null) {
+        final counter = int.tryParse(matchFallback.group(1)!) ?? 0;
+        await prefs.setInt(_billCounterKey, counter);
+      }
     }
   }
 
@@ -333,7 +345,16 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
       },
     );
     if (picked != null) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        // If the current bill number matches the VS-XXXX format, update the date portion
+        final text = _billNoController.text.trim();
+        final match = RegExp(r'^VS-(\d+)\d{8}$').firstMatch(text);
+        if (match != null) {
+          final counter = int.tryParse(match.group(1)!) ?? 1;
+          _billNoController.text = _formatBillNumber(counter, picked);
+        }
+        _selectedDate = picked;
+      });
     }
   }
 
