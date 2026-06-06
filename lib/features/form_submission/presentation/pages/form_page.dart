@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,6 +54,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
   final _billNoController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   static const String _billCounterKey = 'bill_counter';
+  static const String _recentCustomersKey = 'recent_customers';
 
   // Customer Information Controllers
   final _clientNameController = TextEditingController();
@@ -135,6 +138,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
 
     // Load and set the next unique bill number from local storage
     _loadNextBillNumber();
+    _loadRecentCustomers();
 
     // Real-time listeners: update totals & progress bar reactively
     _extraChargesController.addListener(() => setState(() {}));
@@ -182,6 +186,49 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
         await prefs.setInt(_billCounterKey, counter);
       }
     }
+  }
+
+  Future<void> _loadRecentCustomers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString(_recentCustomersKey);
+    if (jsonStr != null) {
+      try {
+        final decoded = json.decode(jsonStr) as List<dynamic>;
+        final list = decoded.map((item) => Map<String, String>.from(item as Map)).toList();
+        if (list.isNotEmpty && mounted) {
+          setState(() {
+            _recentCustomers.clear();
+            _recentCustomers.addAll(list);
+          });
+        }
+      } catch (e) {
+        debugPrint('Error loading recent customers: $e');
+      }
+    }
+  }
+
+  Future<void> _saveRecentCustomers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = json.encode(_recentCustomers);
+    await prefs.setString(_recentCustomersKey, jsonStr);
+  }
+
+  void _updateRecentCustomers(String name, String phone, String address) {
+    if (name.trim().isEmpty) return;
+    setState(() {
+      _recentCustomers.removeWhere((c) =>
+          c['phone']?.trim() == phone.trim() ||
+          c['name']?.trim().toLowerCase() == name.trim().toLowerCase());
+      _recentCustomers.insert(0, {
+        'name': name.trim(),
+        'phone': phone.trim(),
+        'address': address.trim(),
+      });
+      if (_recentCustomers.length > 10) {
+        _recentCustomers.removeRange(10, _recentCustomers.length);
+      }
+    });
+    _saveRecentCustomers();
   }
 
   @override
@@ -314,14 +361,11 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     return double.tryParse(_extraChargesController.text) ?? 0.0;
   }
 
-  /// Calculates the Tax of the invoice (10% of Sub Total)
-  double get _taxAmount {
-    return _subTotal * 0.10;
-  }
+
 
   /// Calculates the Grand Total of the invoice
   double get _grandTotal {
-    return _subTotal + _extraCharges + _taxAmount;
+    return _subTotal + _extraCharges;
   }
 
   Future<void> _pickDate() async {
@@ -406,6 +450,11 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
 
     // Persist the current bill number counter before showing success
     await _saveBillCounter();
+    _updateRecentCustomers(
+      _clientNameController.text,
+      _phoneController.text,
+      _addressController.text,
+    );
 
     setState(() {
       _isSubmitting = false;
@@ -430,6 +479,11 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
       );
       return;
     }
+    _updateRecentCustomers(
+      _clientNameController.text,
+      _phoneController.text,
+      _addressController.text,
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Draft invoice ${_billNoController.text} saved successfully!'),
@@ -530,9 +584,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           child: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Back button pressed')),
-              );
+              SystemNavigator.pop();
             },
           ),
         ),
@@ -996,7 +1048,14 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                     icon: Icons.person_outline_rounded,
                     isDark: isDark,
                     isUnderlined: true,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Client Name is required' : null,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                    ],
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Client Name is required';
+                      if (RegExp(r'[0-9]').hasMatch(v)) return 'Client Name cannot contain numbers';
+                      return null;
+                    },
                   ),
                   const SizedBox(height: AppConstants.spaceM),
                   _buildField(
@@ -1007,6 +1066,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                     keyboardType: TextInputType.phone,
                     isDark: isDark,
                     isUnderlined: true,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Phone number is required';
                       if (v.trim().length < 10) return 'Enter a valid phone number';
@@ -1182,6 +1242,9 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     isDark: isDark,
                     isUnderlined: false,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                    ],
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Charges are required';
                       if (double.tryParse(v) == null) return 'Enter a valid amount';
@@ -1193,87 +1256,6 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
             ),
           ),
           
-          // ─── PAYMENT TERMS SECTION ─────────────────────────────────────────────
-          const SizedBox(height: AppConstants.spaceXL),
-          const Text(
-            'Payment Terms',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: ['Due on Receipt', 'Net 15', 'Net 30', 'Net 60'].map((term) {
-                final isSelected = _selectedPaymentTerm == term;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedPaymentTerm = term;
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF1E1B4B)
-                          : const Color(0xFF131524),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF334155),
-                        width: isSelected ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Text(
-                      term,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.grey.shade400,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          // ─── NOTES SECTION ─────────────────────────────────────────────────────
-          const SizedBox(height: AppConstants.spaceXL),
-          const Text(
-            'Notes',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _notesController,
-            maxLines: 3,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Add a personal message to your client',
-              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-              filled: true,
-              fillColor: const Color(0xFF131524),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF334155)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF8B5CF6)),
-              ),
-              contentPadding: const EdgeInsets.all(12),
-            ),
-          ),
           const SizedBox(height: AppConstants.spaceXL),
 
           // ─── INVOICE SUMMARY CARD ────────────────────────────────────────────
@@ -1335,28 +1317,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Tax (10%)',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.grey.shade400 : AppColors.textSecondaryLight,
-                        ),
-                      ),
-                      Text(
-                        currencyFormatter.format(_taxAmount),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppColors.textPrimaryLight,
-                        ),
-                      ),
-                    ],
-                  ),
+
                   const SizedBox(height: 16),
                   // Glowing Grand Total Box
                   Container(
@@ -1395,56 +1356,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                       ],
                     ),
                   ),
-                  const SizedBox(height: AppConstants.spaceL),
 
-                  // Amount in Words Tinted Container
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF17192C) : const Color(0xFFF3E8FF).withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                      border: Border.all(
-                        color: const Color(0xFF2D325A),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Amount in Words',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.6,
-                            color: isDark ? Colors.grey.shade400 : AppColors.textSecondaryLight,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.description_outlined,
-                              color: Color(0xFF8B5CF6),
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                NumberToWords.convert(_grandTotal),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.3,
-                                  color: isDark ? Colors.white : const Color(0xFF4A148C),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1600,6 +1512,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                 keyboardType: TextInputType.number,
                 isDark: isDark,
                 isUnderlined: true,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Quantity is required';
                   if (int.tryParse(v) == null) return 'Enter a valid number';
@@ -1664,6 +1577,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
 
               // Calculated Area & Entered Rate
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: _buildCalculatedField(
@@ -1683,6 +1597,9 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       isDark: isDark,
                       isUnderlined: false,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Rate is required';
                         if (double.tryParse(v) == null) return 'Enter a valid rate';
@@ -1742,6 +1659,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     int maxLines = 1,
     String? Function(String?)? validator,
     bool isUnderlined = false,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     final borderColor = isDark ? const Color(0xFF1E2235) : AppColors.borderLight;
     final fillColor = isDark ? const Color(0xFF131524).withOpacity(0.5) : const Color(0xFFF9F9FA);
@@ -1786,6 +1704,7 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           keyboardType: keyboardType,
           maxLines: maxLines,
           validator: validator,
+          inputFormatters: inputFormatters,
           style: TextStyle(
             color: isDark ? Colors.white : AppColors.textPrimaryLight,
             fontSize: 15,
@@ -1846,6 +1765,9 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
         TextFormField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+          ],
           validator: (v) {
             if (v == null || v.trim().isEmpty) return '$label is required';
             if (double.tryParse(v) == null) return 'Invalid';
@@ -1897,8 +1819,8 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
     required IconData icon,
     bool showAutoText = true,
   }) {
-    final borderColor = isDark ? const Color(0xFF8B5CF6).withOpacity(0.3) : AppColors.borderLight;
-    final fillColor = isDark ? const Color(0xFF131524).withOpacity(0.8) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? const Color(0xFF1E2235) : AppColors.borderLight;
+    final fillColor = isDark ? const Color(0xFF131524).withOpacity(0.5) : const Color(0xFFF9F9FA);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1912,46 +1834,37 @@ class _FormPageState extends State<FormPage> with TickerProviderStateMixin {
           ),
         ),
         const SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: fillColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Row(
-                  children: [
-                    Icon(icon, color: const Color(0xFF8B5CF6), size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.grey.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        TextFormField(
+          key: ValueKey(value),
+          initialValue: value,
+          readOnly: true,
+          style: TextStyle(
+            color: isDark ? Colors.white : AppColors.textPrimaryLight,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: const Color(0xFF8B5CF6), size: 20),
+            filled: true,
+            fillColor: fillColor,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              borderSide: BorderSide(color: borderColor),
             ),
-            if (showAutoText) ...[
-              const SizedBox(width: 8),
-              const Text(
-                '(Auto calculated)',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ],
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spaceM,
+              vertical: 10,
+            ),
+            helperText: showAutoText ? '(Auto calculated)' : null,
+            helperStyle: TextStyle(
+              fontSize: 11,
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+            ),
+          ),
         ),
       ],
     );

@@ -49,6 +49,15 @@ class PdfService {
       logoImage = null; // graceful fallback if asset missing
     }
 
+    // ── Load signature from assets ────────────────────────────────────────
+    pw.ImageProvider? signatureImage;
+    try {
+      final bytes = await rootBundle.load('assets/images/signature.png');
+      signatureImage = pw.MemoryImage(bytes.buffer.asUint8List());
+    } catch (_) {
+      signatureImage = null; // graceful fallback if asset missing
+    }
+
     // ── Currency formatter with real ₹ symbol ─────────────────────────────
     final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '\u20b9 ');
 
@@ -65,7 +74,7 @@ class PdfService {
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: pw.EdgeInsets.zero,
-        build: (pw.Context ctx) => _buildPage(ctx, data, logoImage, fmt),
+        build: (pw.Context ctx) => _buildPage(ctx, data, logoImage, signatureImage, fmt),
       ),
     );
 
@@ -77,6 +86,7 @@ class PdfService {
     pw.Context ctx,
     InvoiceData data,
     pw.ImageProvider? logo,
+    pw.ImageProvider? signature,
     NumberFormat fmt,
   ) {
     return pw.Container(
@@ -95,7 +105,7 @@ class PdfService {
           pw.SizedBox(height: 8),
           _buildTotalsSection(data, fmt),
           pw.Spacer(),
-          _buildFooter(data),
+          _buildFooter(data, signatureImage: signature),
         ],
       ),
     );
@@ -693,7 +703,7 @@ class PdfService {
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
-  static pw.Widget _buildFooter(InvoiceData data) {
+  static pw.Widget _buildFooter(InvoiceData data, {pw.ImageProvider? signatureImage}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 15),
       decoration: const pw.BoxDecoration(
@@ -793,7 +803,7 @@ class PdfService {
                 ],
               ),
               _signatureBlock('Customer Signature', 'Name & Date'),
-              _signatureBlock('Srimukesh Murugesan', 'Managing Director, VS Arts'),
+              _signatureBlock('Srimukesh Murugesan', 'Managing Director, VS Arts', signatureImage: signatureImage),
             ],
           ),
         ],
@@ -801,17 +811,24 @@ class PdfService {
     );
   }
 
-  static pw.Widget _signatureBlock(String name, String role) {
+  static pw.Widget _signatureBlock(String name, String role, {pw.ImageProvider? signatureImage}) {
     return pw.Column(
       children: [
         pw.Container(
           width: 110,
-          height: 24,
+          height: 36,
+          alignment: pw.Alignment.bottomCenter,
           decoration: const pw.BoxDecoration(
             border: pw.Border(
               bottom: pw.BorderSide(color: _darkGreen, width: 1.2),
             ),
           ),
+          child: signatureImage != null
+              ? pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 2),
+                  child: pw.Image(signatureImage, height: 34, fit: pw.BoxFit.contain),
+                )
+              : null,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
